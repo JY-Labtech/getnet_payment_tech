@@ -1,0 +1,7 @@
+# Arquivo de exemplo para local.properties
+# Copie este arquivo para android/local.properties e preencha com suas chaves de licença
+
+# Chaves de licença (obrigatórias)
+licenceKey=sua_chave_de_licenca_aqui
+licenceInternalKey=sua_chave_interna_aqui
+

@@ -1,0 +1,87 @@
+group = "br.com.jylabtech.getnet_payment_tech"
+version = "1.0"
+
+buildscript {
+    ext {
+        localProps = new Properties()
+        fileName = 'local.properties'
+        if (project.rootProject.file(fileName).exists()) {
+            localProps.load(new FileInputStream(rootProject.file(fileName)))
+        }
+
+        // Licence Keys
+        licenceKey = System.env.LICENCE_KEY ?: localProps.getProperty("licenceKey") ?: ""
+        licenceInternalKey = System.env.LICENCE_INTERNAL_KEY ?: localProps.getProperty("licenceInternalKey") ?: ""
+
+        if (!licenceKey || licenceKey == "") {
+            throw new GradleException("LicenceKey não encontrado!!")
+        }
+
+        if (!licenceInternalKey || licenceInternalKey == "") {
+            throw new GradleException("LicenceInternalKey não encontrado!!")
+        }
+
+        println "licenceKey: $licenceKey"
+        println "licenceInternalKey: $licenceInternalKey"
+    }
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.9.1")
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        flatDir {
+            dirs 'libs'
+        }
+    }
+}
+
+apply plugin: "com.android.library"
+
+android {
+    namespace = "br.com.jylabtech.getnet_payment_tech"
+
+    compileSdk = 36
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    defaultConfig {
+        minSdk = 22
+        buildConfigField "String", "LICENCE_KEY", "\"${licenceKey}\""
+        buildConfigField "String", "LICENCE_INTERNAL_KEY", "\"${licenceInternalKey}\""
+    }
+
+    testOptions {
+        unitTests.all {
+            testLogging {
+               events "passed", "skipped", "failed", "standardOut", "standardError"
+               outputs.upToDateWhen {false}
+               showStandardStreams = true
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation(name: "libposdigital-1.8.1-13-release", ext: "aar")
+    // Dependências para módulo de licença
+    implementation("androidx.security:security-crypto:1.1.0-alpha03")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:5.0.0")
+}
