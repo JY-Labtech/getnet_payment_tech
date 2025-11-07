@@ -1,7 +1,6 @@
 # Arquivo de exemplo para local.properties
-# Copie este arquivo para android/local.properties e preencha com suas chaves de licença
+# Copie este arquivo para android/local.properties apenas se precisar definir manualmente o caminho do Android SDK.
 
-# Chaves de licença (obrigatórias)
-licenceKey=sua_chave_de_licenca_aqui
-licenceInternalKey=sua_chave_interna_aqui
+# Caminho para o Android SDK
+# sdk.dir=/Users/seu_usuario/Library/Android/sdk
 

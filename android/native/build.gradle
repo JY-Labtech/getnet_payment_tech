@@ -1,0 +1,85 @@
+import java.util.Properties
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.9.1"
+    }
+}
+
+apply plugin: "com.android.library"
+
+def loadLocalProperties() {
+    def properties = new Properties()
+    def file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.withInputStream { properties.load(it) }
+    }
+    return properties
+}
+
+def localProperties = loadLocalProperties()
+def flutterSdkPath = localProperties.getProperty("flutter.sdk") ?: System.getenv("FLUTTER_SDK")
+if (!flutterSdkPath) {
+    throw new GradleException("Flutter SDK não encontrado. Defina flutter.sdk em local.properties ou exporte FLUTTER_SDK.")
+}
+
+def flutterJar = new File(flutterSdkPath, "bin/cache/artifacts/engine/android-arm64/flutter.jar")
+if (!flutterJar.exists()) {
+    throw new GradleException("flutter.jar não encontrado em ${flutterJar}. Execute 'flutter precache --android'.")
+}
+
+def pluginLibsDir = localProperties.getProperty("plugin.libs.dir") ?: new File(rootDir, "../libs").absolutePath
+def posDigitalAar = new File(pluginLibsDir, "libposdigital-1.8.1-13-release.aar")
+if (!posDigitalAar.exists()) {
+    throw new GradleException("Dependência libposdigital não encontrada em ${posDigitalAar}.")
+}
+
+android {
+    namespace "br.com.jylabtech.getnet_payment_tech"
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 22
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+    flatDir {
+        dirs pluginLibsDir
+    }
+}
+
+dependencies {
+    implementation "androidx.security:security-crypto:1.1.0-alpha06"
+    implementation "androidx.annotation:annotation:1.8.1"
+    compileOnly files(flutterJar)
+    compileOnly files(posDigitalAar)
+    testImplementation "junit:junit:4.13.2"
+}
+
+tasks.register("generateAar", Copy) {
+    dependsOn "assembleRelease"
+}
+

@@ -11,6 +11,9 @@ class PaymentPage extends StatefulWidget {
 }
 
 class _PaymentPageState extends State<PaymentPage> {
+  static const _licenceKey = '';
+  static const _licenceInternalKey = 'aHR0cHM6Ly9wb3MtcGF5bWVudHMtYXBpLTU3NzQ2NDIzNTQwOC5zb3V0aGFtZXJpY2EtZWFzdDEucnVuLmFwcC9wb3MtcGF5bWVudHMvbGljZW5jZS9jaGVjay9pbnZvaWNl';
+
   final PaymentController controller = PaymentController();
   final TextEditingController moneyController = TextEditingController();
   final TextEditingController callerIdController = TextEditingController();
@@ -21,11 +24,16 @@ class _PaymentPageState extends State<PaymentPage> {
   @override
   void initState() {
     super.initState();
-    GetnetTech.I.initPayment(handler: controller);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initialisePlugin());
+  }
+
+  Future<void> _initialisePlugin() async {
+    await GetnetTech.I.initPayment(handler: controller, licenceKey: _licenceKey, licenceInternalKey: _licenceInternalKey);
     controller.generateCallerId();
     controller.generateOrderId();
     callerIdController.text = controller.callerId ?? '';
     orderIdController.text = controller.orderId ?? '';
+    setState(() {});
   }
 
   @override

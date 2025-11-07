@@ -1,10 +1,5 @@
 package com.example.getnet_payment_tech;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-
-import io.flutter.plugin.common.MethodCall;
-import io.flutter.plugin.common.MethodChannel;
 import org.junit.Test;
 
 /**
@@ -17,13 +12,12 @@ import org.junit.Test;
 
 public class GetnetPaymentTechPluginTest {
   @Test
-  public void onMethodCall_getPlatformVersion_returnsExpectedValue() {
-    GetnetPaymentTechPlugin plugin = new GetnetPaymentTechPlugin();
-
-    final MethodCall call = new MethodCall("getPlatformVersion", null);
-    MethodChannel.Result mockResult = mock(MethodChannel.Result.class);
-    plugin.onMethodCall(call, mockResult);
-
-    verify(mockResult).success("Android " + android.os.Build.VERSION.RELEASE);
+  public void constructor_withoutNativeImplementation_throwsIllegalState() {
+    try {
+      new GetnetPaymentTechPlugin();
+      throw new AssertionError("Era esperado IllegalStateException quando o AAR nativo não está presente.");
+    } catch (IllegalStateException expected) {
+      // Sucesso
+    }
   }
 }

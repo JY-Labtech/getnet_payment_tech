@@ -86,41 +86,33 @@ flutter pub get
 
 ### 3. Configure o Android
 
-Certifique-se de que o arquivo `android/local.properties` existe e contém suas chaves de licença (veja [Configuração](#configuração)).
+Garanta que seu aplicativo disponha das chaves de licença fornecidas pela Getnet e que elas sejam disponibilizadas em tempo de execução (por exemplo, via variáveis de ambiente, cofre de segredos ou serviço seguro). Consulte [Configuração](#configuração) para ver um exemplo de uso em código.
 
 ## ⚙️ Configuração
 
 ### Configuração de Licença
 
-O plugin requer chaves de licença para funcionar. Você pode configurá-las de duas formas:
+O plugin requer que as chaves `licenceKey` e `licenceInternalKey` sejam informadas diretamente pelo aplicativo em tempo de execução. Recomendamos armazená-las com segurança (por exemplo, em um backend, cofre de segredos, variáveis de ambiente criptografadas ou serviços de configuração).
 
-#### Opção 1: Arquivo `local.properties` (Recomendado)
+```dart
+final licenceKey = const String.fromEnvironment('GETNET_LICENCE_KEY');
+final licenceInternalKey = const String.fromEnvironment('GETNET_LICENCE_INTERNAL_KEY');
 
-Crie ou edite o arquivo `android/local.properties` na raiz do projeto do plugin:
-
-```properties
-licenceKey=sua_chave_de_licenca_aqui
-licenceInternalKey=aHR0cHM6Ly9wb3MtcGF5bWVudHMtYXBpLTU3NzQ2NDIzNTQwOC5zb3V0aGFtZXJpY2EtZWFzdDEucnVuLmFwcC9wb3MtcGF5bWVudHMvbGljZW5jZS9jaGVjay9pbnZvaWNl
-
+await GetnetTech.I.initPayment(
+  handler: handler,
+  licenceKey: licenceKey,
+  licenceInternalKey: licenceInternalKey,
+);
 ```
 
-**Nota**: O arquivo `local.properties` não deve ser commitado no Git por questões de segurança.
+> **Dica**: você pode sobrescrever os valores em tempo de build com `--dart-define`, utilizar serviços como Firebase Remote Config ou qualquer outro mecanismo seguro de provisionamento.
 
-#### Opção 2: Variáveis de Ambiente
+#### Configuração do `licenceInternalKey`
 
-Configure as variáveis de ambiente antes de compilar:
+O `licenceInternalKey` pode ser informado como:
 
-```bash
-export LICENCE_KEY="sua_chave_de_licenca"
-export LICENCE_INTERNAL_KEY="aHR0cHM6Ly9wb3MtcGF5bWVudHMtYXBpLTU3NzQ2NDIzNTQwOC5zb3V0aGFtZXJpY2EtZWFzdDEucnVuLmFwcC9wb3MtcGF5bWVudHMvbGljZW5jZS9jaGVjay9pbnZvaWNl"
-```
-
-### Configuração do `licenceInternalKey`
-
-O `licenceInternalKey` pode ser:
-
-- **URL completa**: Uma URL HTTP/HTTPS completa começando com `http` ou `https`
-- **String Base64**: Uma string codificada em Base64 que será decodificada para URL
+- **URL completa**: Uma URL HTTP/HTTPS começando com `http` ou `https`;
+- **String Base64**: Uma string codificada em Base64 que será decodificada para URL pelo plugin.
 
 Exemplo de Base64:
 
@@ -208,11 +200,16 @@ class MyPaymentHandler implements IGetnetHandler {
 ### 3. Inicialize o Plugin
 
 ```dart
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(MyApp());
 
-  // Inicializar o plugin
-  GetnetTech.I.initPayment(handler: MyPaymentHandler());
+  await GetnetTech.I.initPayment(
+    handler: MyPaymentHandler(),
+    licenceKey: const String.fromEnvironment('GETNET_LICENCE_KEY', defaultValue: 'SUA_CHAVE_DE_LICENCA'),
+    licenceInternalKey: const String.fromEnvironment('GETNET_LICENCE_INTERNAL_KEY', defaultValue: 'SUA_CHAVE_INTERNA'),
+  );
 }
 ```
 
@@ -544,7 +541,15 @@ import 'package:flutter/material.dart';
 import 'package:getnet_payment_tech/getnet_payment_tech.dart';
 import 'dart:convert';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await GetnetTech.I.initPayment(
+    handler: MyPaymentHandler(),
+    licenceKey: const String.fromEnvironment('GETNET_LICENCE_KEY', defaultValue: 'SUA_CHAVE_DE_LICENCA'),
+    licenceInternalKey: const String.fromEnvironment('GETNET_LICENCE_INTERNAL_KEY', defaultValue: 'SUA_CHAVE_INTERNA'),
+  );
+
   runApp(MyApp());
 }
 
@@ -570,8 +575,15 @@ class _PaymentScreenState extends State<PaymentScreen> implements IGetnetHandler
   @override
   void initState() {
     super.initState();
-    // Inicializar o plugin
-    GetnetTech.I.initPayment(handler: this);
+    _initPlugin();
+  }
+
+  Future<void> _initPlugin() async {
+    await GetnetTech.I.initPayment(
+      handler: this,
+      licenceKey: const String.fromEnvironment('GETNET_LICENCE_KEY', defaultValue: 'SUA_CHAVE_DE_LICENCA'),
+      licenceInternalKey: const String.fromEnvironment('GETNET_LICENCE_INTERNAL_KEY', defaultValue: 'SUA_CHAVE_INTERNA'),
+    );
   }
 
   // Implementação dos handlers

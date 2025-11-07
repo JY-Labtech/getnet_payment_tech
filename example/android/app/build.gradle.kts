@@ -39,6 +39,16 @@ android {
     }
 }
 
+repositories {
+    flatDir {
+        dirs("libs")
+    }
+}
+
+dependencies {
+    implementation(files("libs/libposdigital-1.8.1-13-release.aar"))
+}
+
 flutter {
     source = "../.."
 }

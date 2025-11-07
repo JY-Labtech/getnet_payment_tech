@@ -1,6 +1,5 @@
 package br.com.jylabtech.getnet_payment_tech.usecase;
 
-import br.com.jylabtech.getnet_payment_tech.BuildConfig;
 import br.com.jylabtech.getnet_payment_tech.licence.CheckLicenceTech;
 import br.com.jylabtech.getnet_payment_tech.licence.LicenceResult;
 
@@ -11,19 +10,25 @@ public class LicenceUsecase {
     private static final String TAG = "LicenceUsecase";
     private final Context context;
     private CheckLicenceTech licenceTech;
+    private String licenceKey;
+    private String licenceInternalKey;
 
     public LicenceUsecase(Context context) {
         this.context = context;
         this.licenceTech = new CheckLicenceTech(context);
     }
 
+    public void updateLicenceKeys(String licenceKey, String licenceInternalKey) {
+        this.licenceKey = licenceKey;
+        this.licenceInternalKey = licenceInternalKey;
+    }
+
     public boolean checkValidLicence() throws Exception {
-        String licenceKeyLocal = BuildConfig.LICENCE_KEY;
-        String licenceInternalKey = BuildConfig.LICENCE_INTERNAL_KEY;
+        ensureKeys();
 
-        Log.i(TAG, "**Licença local: " + licenceKeyLocal);
+        Log.i(TAG, "**Licença local: " + licenceKey);
 
-        LicenceResult resultLicence = licenceTech.validateLicence(licenceKeyLocal, licenceInternalKey);
+        LicenceResult resultLicence = licenceTech.validateLicence(licenceKey, licenceInternalKey);
 
         if (resultLicence.getResult() == 0) {
             Log.i(TAG, "*Licença válida");
@@ -36,9 +41,20 @@ public class LicenceUsecase {
     }
 
     public boolean isValidLicence() throws Exception {
+        ensureKeys();
+
         boolean result = licenceTech.validateExistsLicence();
         Log.i(TAG, "*Licença existente válida: " + result);
         return result;
+    }
+
+    private void ensureKeys() throws Exception {
+        if (licenceKey == null || licenceKey.trim().isEmpty()) {
+            throw new Exception("licenceKey não configurado. Chame initPayment no Flutter.");
+        }
+        if (licenceInternalKey == null || licenceInternalKey.trim().isEmpty()) {
+            throw new Exception("licenceInternalKey não configurado. Chame initPayment no Flutter.");
+        }
     }
 }
 

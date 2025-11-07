@@ -38,6 +38,8 @@ public class GetnetTech {
     private StatusUsecase statusUsecase;
     private PrintUsecase printUsecase;
     private LicenceUsecase licenceUsecase;
+    private String licenceKey;
+    private String licenceInternalKey;
 
     public GetnetTech(Context currentContext, MethodChannel channel, Activity activity) {
         this.currentContext = currentContext;
@@ -47,29 +49,16 @@ public class GetnetTech {
 
     public void callMethod(MethodCall call, MethodChannel.Result result) {
         this.resultScope = result;
-        
-        // Verifica licença antes de permitir qualquer operação
-        try {
-            if (licenceUsecase == null) {
-                licenceUsecase = new LicenceUsecase(currentContext);
-            }
-            
-            // Valida licença existente primeiro
-            boolean isValidLicence = licenceUsecase.isValidLicence();
-            if (!isValidLicence) {
-                // Se não tem licença válida local, tenta validar com servidor
-                boolean resultLicence = licenceUsecase.checkValidLicence();
-                if (!resultLicence) {
-                    result.error("LICENCE_ERROR", "Sua licença não foi ativada.", null);
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Erro ao validar licença: " + e.getMessage());
-            result.error("LICENCE_ERROR", e.getMessage(), null);
+
+        if ("initPayment".equals(call.method)) {
+            handleInitPayment(call, result);
             return;
         }
-        
+
+        if (!ensureLicence(result)) {
+            return;
+        }
+
         if (call.method.startsWith("payment")) {
             Bundle bundle = new Bundle();
             bundle.putString("amount", call.argument("amount"));
@@ -120,6 +109,68 @@ public class GetnetTech {
             result.success(resultData);
         } else {
             result.notImplemented();
+        }
+    }
+
+    private void handleInitPayment(MethodCall call, MethodChannel.Result result) {
+        String licenceKeyArgument = call.argument("licenceKey");
+        String licenceInternalKeyArgument = call.argument("licenceInternalKey");
+
+        if (licenceKeyArgument == null || licenceKeyArgument.trim().isEmpty()) {
+            result.error("LICENCE_ERROR", "licenceKey é obrigatório.", null);
+            return;
+        }
+
+        if (licenceInternalKeyArgument == null || licenceInternalKeyArgument.trim().isEmpty()) {
+            result.error("LICENCE_ERROR", "licenceInternalKey é obrigatório.", null);
+            return;
+        }
+
+        this.licenceKey = licenceKeyArgument;
+        this.licenceInternalKey = licenceInternalKeyArgument;
+
+        if (licenceUsecase == null) {
+            licenceUsecase = new LicenceUsecase(currentContext);
+        }
+
+        licenceUsecase.updateLicenceKeys(licenceKey, licenceInternalKey);
+
+        try {
+            boolean isValidLicence = licenceUsecase.isValidLicence();
+            if (!isValidLicence) {
+                boolean resultLicence = licenceUsecase.checkValidLicence();
+                if (!resultLicence) {
+                    result.error("LICENCE_ERROR", "Sua licença não foi ativada.", null);
+                    return;
+                }
+            }
+            result.success(true);
+        } catch (Exception e) {
+            Log.e(TAG, "Erro ao inicializar licença: " + e.getMessage());
+            result.error("LICENCE_ERROR", e.getMessage(), null);
+        }
+    }
+
+    private boolean ensureLicence(MethodChannel.Result result) {
+        if (licenceUsecase == null || licenceKey == null || licenceInternalKey == null) {
+            result.error("LICENCE_ERROR", "Chame initPayment antes de usar os métodos do plugin.", null);
+            return false;
+        }
+
+        try {
+            boolean isValidLicence = licenceUsecase.isValidLicence();
+            if (!isValidLicence) {
+                boolean resultLicence = licenceUsecase.checkValidLicence();
+                if (!resultLicence) {
+                    result.error("LICENCE_ERROR", "Sua licença não foi ativada.", null);
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Erro ao validar licença: " + e.getMessage());
+            result.error("LICENCE_ERROR", e.getMessage(), null);
+            return false;
         }
     }
 
