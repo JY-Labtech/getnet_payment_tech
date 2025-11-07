@@ -21,11 +21,7 @@ abstract class IGetnetHelper {
     return GetnetTransactionModel.toError(message);
   }
 
-  static Future<dynamic> callHandler({
-    required MethodCall call,
-    required IGetnetHandler iGetnetHandler,
-    required Function(GetnetTransactionModel) onTransaction,
-  }) async {
+  static Future<dynamic> callHandler({required MethodCall call, required IGetnetHandler iGetnetHandler, required Function(GetnetTransactionModel) onTransaction}) async {
     switch (call.method.handler) {
       case PaymentTypeHandler.onTransactionSuccess:
         {
@@ -67,8 +63,6 @@ abstract class IGetnetHelper {
           iGetnetHandler.onLoading(call.arguments);
         }
         break;
-      default:
-        throw "METHOD NOT IMPLEMENTED";
     }
     return true;
   }
@@ -83,12 +77,12 @@ abstract class IGetnetHelper {
       } else {
         jsonString = value.toString();
       }
-      
+
       final map = jsonDecode(jsonString) as Map<String, dynamic>;
-      
+
       // Se o map tem uma chave "data", usa ela, senão usa o map inteiro
       final dataMap = map.containsKey('data') ? map['data'] as Map<String, dynamic> : map;
-      
+
       final transactionModel = GetnetTransactionModel.fromMap(dataMap);
       return transactionModel;
     } catch (e) {
@@ -96,4 +90,3 @@ abstract class IGetnetHelper {
     }
   }
 }
-
