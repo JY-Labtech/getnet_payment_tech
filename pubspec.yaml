@@ -1,6 +1,6 @@
 name: getnet_payment_tech
 description: Plugin Flutter para integrar sua aplicação com o SDK Android da Getnet para meios de pagamento.
-version: 1.0.0
+version: 1.1.0
 homepage: https://github.com/JY-Labtech/getnet_payment_tech
 
 environment:

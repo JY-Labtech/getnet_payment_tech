@@ -23,7 +23,11 @@ Este é um exemplo completo de como usar o plugin `getnet_payment_tech` para int
 
 1. **Inicializar o Plugin**
    ```dart
-   GetnetTech.I.initPayment(handler: seuHandler);
+   await GetnetTech.I.initPayment(
+     handler: seuHandler,
+     licenceKey: 'SUA_CHAVE_DE_LICENCA',
+     licenceInternalKey: 'SUA_CHAVE_INTERNA',
+   );
    ```
 
 2. **Realizar um Pagamento**
@@ -76,6 +80,7 @@ example/
 - O valor deve ser inserido em reais (ex: 100.00 para R$ 100,00)
 - Para estornar, é necessário o CV Number e a data da transação original
 - O plugin utiliza deeplinks para comunicação com o SDK Getnet
+- As chaves `licenceKey` e `licenceInternalKey` devem ser fornecidas via código (por variáveis de ambiente ou constantes)
 
 ## Suporte
 
