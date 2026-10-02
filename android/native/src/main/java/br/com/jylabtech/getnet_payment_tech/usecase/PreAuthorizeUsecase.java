@@ -6,35 +6,47 @@ import android.os.Bundle;
 import java.util.Map;
 
 import br.com.jylabtech.getnet_payment_tech.deeplink.PreAuthorizationDeeplink;
-import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.Result;
 
 public class PreAuthorizeUsecase {
 
-    private Activity binding;
-    private Result resultScope;
+    private final Activity binding;
 
-    private PreAuthorizationDeeplink preAuthorizationDeeplink;
+    private final PreAuthorizationDeeplink preAuthorizationDeeplink;
 
-    public PreAuthorizeUsecase(Result result, Activity bind) {
-        this.resultScope = result;
-        this.binding = bind;
-        this.preAuthorizationDeeplink = new PreAuthorizationDeeplink();
+    public PreAuthorizeUsecase(Activity bind) {
+        this(bind, new PreAuthorizationDeeplink());
     }
 
-    public void starDeeplink( Bundle bundle) {
-        Bundle bundleStartDeeplink = preAuthorizationDeeplink.startDeeplink(binding, bundle);
-        String code = bundleStartDeeplink.getString("code", "ERROR");
+    PreAuthorizeUsecase(Activity bind, PreAuthorizationDeeplink preAuthorizationDeeplink) {
+        this.binding = bind;
+        this.preAuthorizationDeeplink = preAuthorizationDeeplink;
+    }
 
-        if ("ERROR".equals(code)) {
-            String message = bundleStartDeeplink.getString("message", "start deeplink error");
-            resultScope.error(code, message, null);
+    /**
+     * Abre o deeplink da Getnet. Usa sempre o {@code result} da chamada corrente.
+     *
+     * @return {@code true} se o deeplink foi aberto (a resposta virá pelo onActivityResult);
+     * {@code false} se houve erro, caso em que {@code result} já foi respondido com erro.
+     */
+    public boolean starDeeplink(Bundle bundle, Result result) {
+        try {
+            Bundle bundleStartDeeplink = preAuthorizationDeeplink.startDeeplink(this.binding, bundle);
+            String code = bundleStartDeeplink.getString("code", "ERROR");
+
+            if ("ERROR".equals(code)) {
+                String message = bundleStartDeeplink.getString("message", "start deeplink error");
+                result.error(code, message, null);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            result.error("ERROR", e.getMessage(), null);
+            return false;
         }
     }
-
 
     public Map<String, Object> validate(Intent intent) {
         return preAuthorizationDeeplink.validateIntent(intent);
     }
 }
-

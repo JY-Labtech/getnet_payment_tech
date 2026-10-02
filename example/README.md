@@ -26,7 +26,6 @@ Este é um exemplo completo de como usar o plugin `getnet_payment_tech` para int
    await GetnetTech.I.initPayment(
      handler: seuHandler,
      licenceKey: 'SUA_CHAVE_DE_LICENCA',
-     licenceInternalKey: 'SUA_CHAVE_INTERNA',
    );
    ```
 
@@ -80,7 +79,9 @@ example/
 - O valor deve ser inserido em reais (ex: 100.00 para R$ 100,00)
 - Para estornar, é necessário o CV Number e a data da transação original
 - O plugin utiliza deeplinks para comunicação com o SDK Getnet
-- As chaves `licenceKey` e `licenceInternalKey` devem ser fornecidas via código (por variáveis de ambiente ou constantes)
+- A chave `licenceKey` deve ser fornecida via código (por variáveis de ambiente ou constantes)
+- A `licenceKey` é obtida no portal [https://portal.jylabtech.com.br](https://portal.jylabtech.com.br) (a licença `debug` de cortesia permite testar em até 2 aparelhos)
+- O `licenceInternalKey` é opcional e o exemplo não o informa: o plugin usa o padrão `licenceCheck` (servidor oficial da JY Labtech)
 
 ## Suporte
 

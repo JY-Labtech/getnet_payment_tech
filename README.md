@@ -1,14 +1,14 @@
 # Getnet Payment Tech
 
 <div align="center">
-  <img src="assets/getnet_payment_tech.png" alt="Stone" height="300" />
+  <img src="assets/getnet_payment_tech.png" alt="Getnet Payment Tech" height="300" />
 </div>
 
 ---
 
 ## 🚨 Aviso
 
-> **Este plugin é _não oficial_** e foi desenvolvido de forma independente para facilitar a integração de pagamentos via SDK da Stone em dispositivos Android Smart POS.
+> **Este plugin é _não oficial_** e foi desenvolvido de forma independente para facilitar a integração de pagamentos via SDK da Getnet em dispositivos Android Smart POS.
 
 ---
 
@@ -27,6 +27,7 @@ Plugin Flutter para integrar sua aplicação com o SDK Android da Getnet para pr
 - [Modelos de Dados](#modelos-de-dados)
 - [Exemplos de Código](#exemplos-de-código)
 - [Tratamento de Erros](#tratamento-de-erros)
+- [Testes](#testes)
 - [Suporte](#suporte)
 
 ## 🎯 Sobre o Plugin
@@ -75,7 +76,7 @@ No arquivo `pubspec.yaml` do seu projeto:
 
 ```yaml
 dependencies:
-  getnet_payment_tech: any
+  getnet_payment_tech: ^1.2.0
 ```
 
 ### 2. Instale as dependências
@@ -86,22 +87,20 @@ flutter pub get
 
 ### 3. Configure o Android
 
-Garanta que seu aplicativo disponha das chaves de licença fornecidas pela Getnet e que elas sejam disponibilizadas em tempo de execução (por exemplo, via variáveis de ambiente, cofre de segredos ou serviço seguro). Consulte [Configuração](#configuração) para ver um exemplo de uso em código.
+Garanta que seu aplicativo disponha das chaves de licença adquiridas no portal da JY Labtech ([https://portal.jylabtech.com.br](https://portal.jylabtech.com.br)) e que elas sejam disponibilizadas em tempo de execução (por exemplo, via variáveis de ambiente, cofre de segredos ou serviço seguro). Consulte [Configuração](#configuração) para ver um exemplo de uso em código.
 
 ## ⚙️ Configuração
 
 ### Configuração de Licença
 
-O plugin requer que as chaves `licenceKey` e `licenceInternalKey` sejam informadas diretamente pelo aplicativo em tempo de execução. Recomendamos armazená-las com segurança (por exemplo, em um backend, cofre de segredos, variáveis de ambiente criptografadas ou serviços de configuração).
+O plugin requer que a chave `licenceKey` seja informada pelo aplicativo em tempo de execução. Recomendamos armazená-la com segurança (por exemplo, em um backend, cofre de segredos, variáveis de ambiente criptografadas ou serviços de configuração). O `licenceInternalKey` é **opcional** desde a versão 1.2.0.
 
 ```dart
 final licenceKey = const String.fromEnvironment('GETNET_LICENCE_KEY');
-final licenceInternalKey = const String.fromEnvironment('GETNET_LICENCE_INTERNAL_KEY');
 
 await GetnetTech.I.initPayment(
   handler: handler,
   licenceKey: licenceKey,
-  licenceInternalKey: licenceInternalKey,
 );
 ```
 
@@ -109,46 +108,84 @@ await GetnetTech.I.initPayment(
 
 #### Configuração do `licenceInternalKey`
 
-O `licenceInternalKey` pode ser informado como:
+O plugin **sempre** valida a licença no servidor oficial da JY Labtech (`https://portal-api.jylabtech.com.br/pos-payments/licence/check`). O `licenceInternalKey` é opcional e, quando omitido, usa a constante `licenceCheck` exportada pelo plugin.
 
-- **URL completa**: Uma URL HTTP/HTTPS começando com `http` ou `https`;
-- **String Base64**: Uma string codificada em Base64 que será decodificada para URL pelo plugin.
+Se informado, ele pode ser uma string Base64 ou a URL completa, mas só é aceito se apontar para o servidor oficial (`https`, host `portal-api.jylabtech.com.br` e caminho `/pos-payments/licence/check...`). **Qualquer outro valor é ignorado** (inclusive o valor antigo do Cloud Run, URLs `http`, outros hosts ou valores inválidos) e o plugin usa o servidor oficial.
 
-Exemplo de Base64:
+Valor padrão (`licenceCheck`, Base64 de `https://portal-api.jylabtech.com.br/pos-payments/licence/check`):
 
 ```
-aHR0cHM6Ly9wb3MtcGF5bWVudHMtYXBpLTU3NzQ2NDIzNTQwOC5zb3V0aGFtZXJpY2EtZWFzdDEucnVuLmFwcC9wb3MtcGF5bWVudHMvbGljZW5jZS9jaGVjaw==
+aHR0cHM6Ly9wb3J0YWwtYXBpLmp5bGFidGVjaC5jb20uYnIvcG9zLXBheW1lbnRzL2xpY2VuY2UvY2hlY2s=
 ```
+
+Ou, em texto puro:
+
+```
+https://portal-api.jylabtech.com.br/pos-payments/licence/check
+```
+
+> **Migração:** o valor antigo do `licenceInternalKey` (iniciado por `aHR0cHM6Ly9wb3MtcGF5bWVudHMtYXBp...`) não quebra o app, mas é ignorado: a validação vai para o servidor oficial. Você pode simplesmente remover o parâmetro. As suas chaves de licença (`licenceKey`) **não mudam**: as chaves existentes continuam valendo.
 
 ## 🔐 Sistema de Licença
 
-O plugin possui um sistema integrado de licenciamento que:
+O uso do plugin exige uma licença válida da JY Labtech. O plugin:
 
-- ✅ Valida a licença antes de cada operação
-- ✅ Armazena licenças localmente de forma criptografada
-- ✅ Renova automaticamente a validação após 7 dias
-- ✅ Bloqueia o uso do plugin se a licença for inválida
+- ✅ Valida a licença sempre no servidor oficial da JY Labtech, na inicialização (`initPayment`) e antes de **cada** operação (pagamentos, estorno, status, pré-autorização, impressão, reimpressão, `getInfo` e `getDeviceInfo`)
+- ✅ Armazena a licença localmente de forma criptografada (`EncryptedSharedPreferences`)
+- ✅ Funciona offline com a licença armazenada até a data de validade, por no máximo **7 dias** sem nova consulta ao servidor
+- ✅ Bloqueia toda operação com erro `LICENCE_ERROR`, sem chamar o SDK da Getnet, quando a licença é inválida, vencida, suspensa ou cancelada
+
+### Onde adquirir a licença
+
+Acesse o portal **[https://portal.jylabtech.com.br](https://portal.jylabtech.com.br)** (o mesmo e-mail e senha do portal antigo continuam funcionando). No portal você pode:
+
+- Adquirir a **Licença plugin de pagamento**, que vale para qualquer plugin de pagamento da JY Labtech;
+- Copiar a sua chave de licença (`licenceKey`). Chaves existentes continuam válidas e chaves novas têm o formato `JYL-...`;
+- Gerenciar e desativar os aparelhos vinculados à licença.
+
+**Planos:**
+
+| Plano | Descrição |
+|---|---|
+| `debug` | Cortesia concedida automaticamente no cadastro: 2 aparelhos, válida por 365 dias. Ideal para desenvolvimento e homologação. |
+| `mensal` | Cobrado por dispositivo, para uso em produção. |
+
+Cada aparelho que valida a licença ocupa uma vaga do limite de dispositivos da licença. O aparelho é identificado pelo `ANDROID_ID` (e pelo número de série, quando disponível).
 
 ### Como Funciona
 
-1. **Primeira Validação**: Ao iniciar uma operação, o plugin verifica se existe uma licença válida localmente
-2. **Validação com Servidor**: Se não houver licença local válida, valida com o servidor usando a API
-3. **Armazenamento Seguro**: Licenças válidas são armazenadas localmente usando `EncryptedSharedPreferences`
-4. **Renovação Automática**: Após 7 dias, a licença local precisa ser renovada
+1. **Validação local**: ao inicializar ou executar uma operação, o plugin verifica se existe uma licença válida armazenada no aparelho para a mesma `licenceKey` (sem acesso à rede). A licença local só vale se estiver ativa, dentro da validade, não cancelada, salva há no máximo 7 dias, com o relógio do aparelho coerente e validada no servidor oficial. Uma licença local salva por versões anteriores com o `licenceInternalKey` antigo (Cloud Run) é descartada e revalidada online no servidor oficial
+2. **Validação com o servidor**: se não houver licença local válida, o plugin consulta o servidor oficial (`POST https://portal-api.jylabtech.com.br/pos-payments/licence/check`, com o header `Authorization: Bearer licence:<licenceKey>`), em background e com timeout de 15 s
+3. **Armazenamento seguro**: somente uma licença ativa e dentro da validade é armazenada localmente, de forma criptografada. Uma resposta do servidor com licença vencida, inativa ou cancelada é tratada como erro
+4. **Renovação**: a licença local deixa de valer na data de vencimento ou após 7 dias sem nova consulta; nesse momento o plugin consulta o servidor novamente (é necessário ter internet)
 
 ### Erros de Licença
 
-Se a licença não for válida, você receberá um erro com código `LICENCE_ERROR`:
+Os erros de licença são retornados pelo nativo como `PlatformException` com código `LICENCE_ERROR`. O `initPayment` lança essa exceção; os demais métodos (pagamentos, impressão etc.) retornam `false` e a operação não é executada. A mensagem tem o formato `Sua licença não foi ativada. <motivo>`.
 
 ```dart
 try {
-  await GetnetTech.I.payment.creditPayment(...);
-} catch (e) {
-  if (e.toString().contains('LICENCE_ERROR')) {
-    // Tratar erro de licença
+  await GetnetTech.I.initPayment(
+    handler: handler,
+    licenceKey: licenceKey,
+  );
+} on PlatformException catch (e) {
+  if (e.code == 'LICENCE_ERROR') {
+    // Tratar erro de licença (e.message contém o motivo)
   }
 }
 ```
+
+| HTTP | Motivo | O que fazer |
+|---|---|---|
+| 404 | Licença não encontrada | Confira a `licenceKey` copiada do portal |
+| 412 | Limite de aparelhos atingido ou aparelho desativado | Libere/reative o aparelho no portal ou amplie a licença |
+| 428 | Licença vencida, suspensa ou cancelada | Renove ou regularize o pagamento no portal |
+| 403 | Token de licença não enviado | Informe uma `licenceKey` não vazia |
+| 400 | Aparelho sem identificador estável | Verifique se o aparelho fornece `ANDROID_ID` |
+| 429 | Muitas requisições | Aguarde alguns instantes e tente novamente |
+
+Erros de rede (sem internet, DNS, timeout) e respostas inesperadas do servidor também resultam em `LICENCE_ERROR` quando não há licença válida armazenada. Sem mensagem do servidor, o motivo é `Erro ao validar licença (HTTP <código>)`.
 
 ## 📖 Como Usar
 
@@ -208,7 +245,6 @@ Future<void> main() async {
   await GetnetTech.I.initPayment(
     handler: MyPaymentHandler(),
     licenceKey: const String.fromEnvironment('GETNET_LICENCE_KEY', defaultValue: 'SUA_CHAVE_DE_LICENCA'),
-    licenceInternalKey: const String.fromEnvironment('GETNET_LICENCE_INTERNAL_KEY', defaultValue: 'SUA_CHAVE_INTERNA'),
   );
 }
 ```
@@ -547,7 +583,6 @@ Future<void> main() async {
   await GetnetTech.I.initPayment(
     handler: MyPaymentHandler(),
     licenceKey: const String.fromEnvironment('GETNET_LICENCE_KEY', defaultValue: 'SUA_CHAVE_DE_LICENCA'),
-    licenceInternalKey: const String.fromEnvironment('GETNET_LICENCE_INTERNAL_KEY', defaultValue: 'SUA_CHAVE_INTERNA'),
   );
 
   runApp(MyApp());
@@ -582,7 +617,6 @@ class _PaymentScreenState extends State<PaymentScreen> implements IGetnetHandler
     await GetnetTech.I.initPayment(
       handler: this,
       licenceKey: const String.fromEnvironment('GETNET_LICENCE_KEY', defaultValue: 'SUA_CHAVE_DE_LICENCA'),
-      licenceInternalKey: const String.fromEnvironment('GETNET_LICENCE_INTERNAL_KEY', defaultValue: 'SUA_CHAVE_INTERNA'),
     );
   }
 
@@ -799,20 +833,25 @@ Future<void> getDeviceInformation() async {
 
 ```dart
 try {
-  await GetnetTech.I.payment.creditPayment(...);
-} catch (e) {
-  if (e.toString().contains('LICENCE_ERROR')) {
-    // Licença inválida ou não configurada
+  await GetnetTech.I.initPayment(
+    handler: handler,
+    licenceKey: licenceKey,
+  );
+} on PlatformException catch (e) {
+  if (e.code == 'LICENCE_ERROR') {
+    // Licença inválida, vencida, sem vaga de aparelho ou não configurada
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Erro de Licença'),
-        content: Text('Sua licença não foi ativada. Entre em contato com o suporte.'),
+        content: Text(e.message ?? 'Sua licença não foi ativada.'),
       ),
     );
   }
 }
 ```
+
+Veja a tabela de erros em [Sistema de Licença](#sistema-de-licença).
 
 #### Erro de Validação
 
@@ -903,6 +942,12 @@ Quando ocorre um erro, o `onError` recebe uma mensagem de erro:
 - Todas as operações são assíncronas
 - Os callbacks são executados na thread principal do Flutter
 - Use `setState()` ou gerenciadores de estado para atualizar a UI
+- Cada chamada recebe exatamente uma resposta no seu próprio `Future` (desde a 1.2.0). A resposta de uma operação que abre o app da Getnet (pagamentos, estorno, status, pré-autorização, reimpressão, `getInfo`) é entregue ao `Future` dessa operação, mesmo que outro método (ex.: `getDeviceInfo`) seja chamado enquanto ela está em andamento. Antes, a resposta podia ir para o `Future` de outra chamada (causando `Reply already submitted`) e o `Future` da operação original nunca completava
+- Se o app da Getnet não puder ser aberto, o `Future` daquela chamada completa com `PlatformException` (antes, a partir da segunda chamada, o erro ia para o `Future` da primeira e o da chamada atual nunca completava)
+- `print` continua funcionando após uma falha de impressão (antes, a impressão seguinte a um erro derrubava o app com `NullPointerException`)
+- Se o usuário cancelar (ou fechar/voltar) no app da Getnet, a operação completa com erro `CANCELED` ("Operação cancelada ou não concluída no app da Getnet"): o método retorna `false` e o handler recebe `onError` com essa mensagem. Antes o `Future` ficava pendente para sempre
+- O plugin só trata os resultados de Activity dos seus próprios deeplinks; resultados de outras Activities/plugins não são mais consumidos
+- Se a implementação nativa ou o SDK da Getnet (`libposdigital`) não estiverem no app, o plugin não derruba mais o app na inicialização: toda chamada responde `PlatformException(code: 'NATIVE_UNAVAILABLE')` com a causa na mensagem
 
 ## 🛠️ Troubleshooting
 
@@ -918,13 +963,15 @@ plugin:
       pluginClass: GetnetPaymentTechPlugin
 ```
 
-### Problema: Erro de licença não encontrada
+### Problema: Erro de licença (`LICENCE_ERROR`)
 
 **Solução**:
 
-1. Verifique se o arquivo `android/local.properties` existe
-2. Confirme que as chaves `licenceKey` e `licenceInternalKey` estão configuradas
-3. Execute `flutter clean` e `flutter pub get`
+1. Confirme que a `licenceKey` foi informada (não vazia) no `initPayment`
+2. O `licenceInternalKey` é opcional e valores fora do servidor oficial são ignorados (veja [Configuração do `licenceInternalKey`](#configuração-do-licenceinternalkey))
+3. Confira no portal [https://portal.jylabtech.com.br](https://portal.jylabtech.com.br) se a licença está ativa, dentro da validade e com vaga de aparelho (ou se o aparelho não foi desativado)
+4. Garanta que o aparelho tem acesso à internet na primeira validação e pelo menos a cada 7 dias
+5. Ao trocar de chave, a licença armazenada localmente é descartada automaticamente e uma nova validação é feita
 
 ### Problema: Callbacks não são chamados
 
@@ -934,6 +981,10 @@ plugin:
 2. Verifique se o handler está implementado corretamente
 3. Confirme que o dispositivo tem o SDK Getnet instalado
 
+### Problema: Erro `NATIVE_UNAVAILABLE`
+
+**Solução**: a implementação nativa do plugin ou o SDK da Getnet não foi carregado. Confira se o app inclui o AAR `libposdigital` (veja [Configure o Android](#3-configure-o-android)) e leia a mensagem do erro, que traz a causa.
+
 ### Problema: Transação não inicia
 
 **Solução**:
@@ -942,11 +993,34 @@ plugin:
 2. Confirme que o SDK Getnet está instalado e atualizado
 3. Verifique os logs do Android para mais detalhes
 
+## 🧪 Testes
+
+Testes Dart (contrato do MethodChannel, constante `licenceCheck` e propagação de `LICENCE_ERROR`):
+
+```bash
+flutter test
+```
+
+Testes JVM do nativo (URL travada no servidor oficial, regras de validade da licença, cache offline, tratamento das respostas HTTP e resposta única no `Result` de cada chamada dos usecases), executados com o Gradle wrapper do example:
+
+```bash
+bash scripts/build_android_aar.sh   # gera android/native/local.properties e os binários em android/libs
+cd example/android
+./gradlew -p ../../android/native testDebugUnitTest
+```
+
+Teste da bridge Java (`android/src`), que carrega a implementação pré-compilada em `android/libs`:
+
+```bash
+cd example/android
+./gradlew :getnet_payment_tech:testDebugUnitTest
+```
+
 ## 📚 Recursos Adicionais
 
 - [Documentação Getnet SDK](https://developers.getnet.com.br/)
 - [Exemplo Completo](./example/)
-- [Issues e Suporte](https://github.com/seu-usuario/getnet_payment_tech/issues)
+- [Issues e Suporte](https://github.com/JY-Labtech/getnet_payment_tech/issues)
 
 ## 📄 Licença
 
@@ -958,14 +1032,14 @@ Este software é proprietário e protegido por direitos autorais. Todos os direi
 
 Para adquirir uma licença e obter acesso completo ao plugin, acesse nosso portal de licenciamento:
 
-🔗 **[https://licenca.jylabtech.com.br](https://licenca.jylabtech.com.br)**
+🔗 **[https://portal.jylabtech.com.br](https://portal.jylabtech.com.br)**
 
 No portal você poderá:
 
-- ✅ Comprar licenças para uso comercial
-- ✅ Gerenciar suas licenças existentes
+- ✅ Comprar licenças para uso comercial (plano `mensal`, cobrado por dispositivo)
+- ✅ Usar a licença `debug` de cortesia (2 aparelhos, 365 dias) para desenvolvimento
+- ✅ Gerenciar suas licenças e aparelhos existentes
 - ✅ Obter suporte técnico
-- ✅ Acessar documentação adicional
 
 ### Restrições
 

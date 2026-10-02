@@ -6,33 +6,43 @@ import android.os.Bundle;
 import java.util.Map;
 
 import br.com.jylabtech.getnet_payment_tech.deeplink.PaymentDeeplink;
-import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.Result;
 
 public class PaymentUsecase {
 
-    private Activity binding;
-    private Result resultScope;
+    private final Activity binding;
 
-    private PaymentDeeplink paymentDeeplink;
+    private final PaymentDeeplink paymentDeeplink;
 
-    public PaymentUsecase(Result result, Activity bind) {
-        this.resultScope = result;
-        this.binding = bind;
-        this.paymentDeeplink = new PaymentDeeplink();
+    public PaymentUsecase(Activity bind) {
+        this(bind, new PaymentDeeplink());
     }
 
-    public void starDeeplink( Bundle bundle) {
+    PaymentUsecase(Activity bind, PaymentDeeplink paymentDeeplink) {
+        this.binding = bind;
+        this.paymentDeeplink = paymentDeeplink;
+    }
+
+    /**
+     * Abre o deeplink da Getnet. Usa sempre o {@code result} da chamada corrente.
+     *
+     * @return {@code true} se o deeplink foi aberto (a resposta virá pelo onActivityResult);
+     * {@code false} se houve erro, caso em que {@code result} já foi respondido com erro.
+     */
+    public boolean starDeeplink(Bundle bundle, Result result) {
         try {
             Bundle bundleStartDeeplink = paymentDeeplink.startDeeplink(this.binding, bundle);
-        String code = bundleStartDeeplink.getString("code", "ERROR");
+            String code = bundleStartDeeplink.getString("code", "ERROR");
 
-        if ("ERROR".equals(code)) {
-            String message = bundleStartDeeplink.getString("message", "start deeplink error");
-            resultScope.error(code, message, null);
-        }
+            if ("ERROR".equals(code)) {
+                String message = bundleStartDeeplink.getString("message", "start deeplink error");
+                result.error(code, message, null);
+                return false;
+            }
+            return true;
         } catch (Exception e) {
-            resultScope.error("ERROR", e.getMessage(), null);
+            result.error("ERROR", e.getMessage(), null);
+            return false;
         }
     }
 
@@ -40,4 +50,3 @@ public class PaymentUsecase {
         return paymentDeeplink.validateIntent(intent);
     }
 }
-

@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.MethodCall;
 
@@ -14,29 +13,60 @@ import br.com.jylabtech.getnet_payment_tech.services.PrintService;
 
 public class PrintUsecase {
 
-    private Result resultScope;
-    private PrintService printService;
-
-    public PrintUsecase(Result result) {
-        this.resultScope = result;
-        this.printService = new PrintService();
+    /** Executa a impressão e devolve o resultado já convertido (código + mensagem). */
+    interface PrintRunner {
+        PrintOutcome print(List<HashMap<String, Object>> printableContent);
     }
 
-    public void print(MethodCall call) {
-        List<HashMap<String, Object>> listPrintContent = call.argument("printable_content");
-        Bundle bundleResult = printService.start(listPrintContent != null ? toBundleList(listPrintContent) : new ArrayList<>());
+    static final class PrintOutcome {
+        final String code;
+        final String message;
 
-        if ("SUCCESS".equals(bundleResult.getString("code"))) {
-            Map<String, Object> data = new HashMap<>();
-            data.put("code", "SUCCESS");
-            data.put("message", bundleResult.getString("message"));
-            resultScope.success(data);
-        } else {
-            String message = bundleResult.getString("message") != null ? bundleResult.getString("message") : "result error";
-            resultScope.error(bundleResult.getString("code") != null ? bundleResult.getString("code") : "ERROR", message, null);
-            resultScope = null;
+        PrintOutcome(String code, String message) {
+            this.code = code;
+            this.message = message;
+        }
+    }
+
+    private final PrintRunner printRunner;
+    private PrintService printService;
+
+    public PrintUsecase() {
+        this.printRunner = this::printWithService;
+    }
+
+    PrintUsecase(PrintRunner printRunner) {
+        this.printRunner = printRunner;
+    }
+
+    /** Imprime e responde uma única vez no {@code result} da chamada corrente. */
+    public void print(MethodCall call, Result result) {
+        PrintOutcome outcome;
+        try {
+            List<HashMap<String, Object>> listPrintContent = call.argument("printable_content");
+            outcome = printRunner.print(listPrintContent);
+        } catch (Exception e) {
+            outcome = new PrintOutcome("ERROR", e.getMessage() != null ? e.getMessage() : "result error");
         }
 
+        if (outcome != null && "SUCCESS".equals(outcome.code)) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("code", "SUCCESS");
+            data.put("message", outcome.message);
+            result.success(data);
+        } else {
+            String code = outcome != null && outcome.code != null ? outcome.code : "ERROR";
+            String message = outcome != null && outcome.message != null ? outcome.message : "result error";
+            result.error(code, message, null);
+        }
+    }
+
+    private PrintOutcome printWithService(List<HashMap<String, Object>> listPrintContent) {
+        if (printService == null) {
+            printService = new PrintService();
+        }
+        Bundle bundleResult = printService.start(listPrintContent != null ? toBundleList(listPrintContent) : new ArrayList<>());
+        return new PrintOutcome(bundleResult.getString("code"), bundleResult.getString("message"));
     }
 
     private ArrayList<Bundle> toBundleList(List<HashMap<String, Object>> list) {

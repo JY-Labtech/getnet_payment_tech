@@ -1,6 +1,8 @@
 package br.com.jylabtech.getnet_payment_tech.usecase;
 
 import br.com.jylabtech.getnet_payment_tech.licence.CheckLicenceTech;
+import br.com.jylabtech.getnet_payment_tech.licence.LicenceConfig;
+import br.com.jylabtech.getnet_payment_tech.licence.LicenceRules;
 import br.com.jylabtech.getnet_payment_tech.licence.LicenceResult;
 
 import android.content.Context;
@@ -20,17 +22,20 @@ public class LicenceUsecase {
 
     public void updateLicenceKeys(String licenceKey, String licenceInternalKey) {
         this.licenceKey = licenceKey;
-        this.licenceInternalKey = licenceInternalKey;
+        // Opcional: vazio usa o servidor oficial. Valores fora do servidor oficial são ignorados
+        // por LicenceConfig.resolveLicenceUrl.
+        this.licenceInternalKey = (licenceInternalKey == null || licenceInternalKey.trim().isEmpty())
+                ? LicenceConfig.LICENCE_CHECK_URL
+                : licenceInternalKey;
     }
 
+    /** Valida pelo cache válido ou pelo servidor. Faz acesso à rede: não chame na main thread. */
     public boolean checkValidLicence() throws Exception {
         ensureKeys();
 
-        Log.i(TAG, "**Licença local: " + licenceKey);
-
         LicenceResult resultLicence = licenceTech.validateLicence(licenceKey, licenceInternalKey);
 
-        if (resultLicence.getResult() == 0) {
+        if (resultLicence.getResult() == LicenceRules.RESULT_SUCCESS) {
             Log.i(TAG, "*Licença válida");
             return true;
         } else {
@@ -40,10 +45,11 @@ public class LicenceUsecase {
         }
     }
 
+    /** Verifica somente o cache local (sem rede), com todas as regras de validade. */
     public boolean isValidLicence() throws Exception {
         ensureKeys();
 
-        boolean result = licenceTech.validateExistsLicence();
+        boolean result = licenceTech.validateExistsLicence(licenceKey, licenceInternalKey);
         Log.i(TAG, "*Licença existente válida: " + result);
         return result;
     }
@@ -51,9 +57,6 @@ public class LicenceUsecase {
     private void ensureKeys() throws Exception {
         if (licenceKey == null || licenceKey.trim().isEmpty()) {
             throw new Exception("licenceKey não configurado. Chame initPayment no Flutter.");
-        }
-        if (licenceInternalKey == null || licenceInternalKey.trim().isEmpty()) {
-            throw new Exception("licenceInternalKey não configurado. Chame initPayment no Flutter.");
         }
     }
 }

@@ -2,6 +2,7 @@ package br.com.jylabtech.getnet_payment_tech;
 
 import androidx.annotation.NonNull;
 
+import br.com.jylabtech.getnet_payment_tech.core.ActivityResultRules;
 import br.com.jylabtech.getnet_payment_tech.core.GetnetTech;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -25,7 +26,6 @@ public class GetnetPaymentTechPluginImpl implements FlutterPlugin, MethodCallHan
     private static final String CHANNEL_NAME = "getnet_payment_tech";
     private MethodChannel channel;
     private Activity binding;
-    private MethodChannel.Result resultScope;
     private Context context;
 
     private GetnetTech getnetTech;
@@ -52,6 +52,14 @@ public class GetnetPaymentTechPluginImpl implements FlutterPlugin, MethodCallHan
         PosDigital.register(newBinding.getActivity(), bindCallback);
         checkGetnetTech();
         newBinding.addActivityResultListener((requestCode, resultCode, intent) -> {
+            // Só consome os resultados dos deeplinks deste plugin; os demais seguem para outros plugins.
+            if (!ActivityResultRules.isPluginRequestCode(requestCode)) {
+                return false;
+            }
+            checkGetnetTech();
+            if (getnetTech == null) {
+                return true;
+            }
             Map<String, Object> resultCheck = getnetTech.checkIntentResponse(requestCode, resultCode, intent);
             if(resultCheck != null) {
                 sendResultData(resultCheck);
@@ -98,10 +106,8 @@ public class GetnetPaymentTechPluginImpl implements FlutterPlugin, MethodCallHan
 
     @Override
     public void onMethodCall(MethodCall call, MethodChannel.Result result) {
-        resultScope = result;
-
         if (!(this.binding instanceof Activity)) {
-            resultScope.error("UNAVAILABLE", "Activity is not available", null);
+            result.error("UNAVAILABLE", "Activity is not available", null);
             return;
         }
 
@@ -113,6 +119,8 @@ public class GetnetPaymentTechPluginImpl implements FlutterPlugin, MethodCallHan
     @TargetApi(Build.VERSION_CODES.N)
     private void sendResultData(Map<String, Object> paymentData) {
         if (paymentData != null) {
+            // Result da operação de deeplink que originou esta resposta (entregue uma única vez).
+            final MethodChannel.Result pendingResult = getnetTech != null ? getnetTech.takePendingDeeplinkResult() : null;
             try {
                 // Converte o resultado para JSON string
                 String jsonData = convertMapToJson(paymentData);
@@ -138,8 +146,8 @@ public class GetnetPaymentTechPluginImpl implements FlutterPlugin, MethodCallHan
                         });
                         
                         // Também retorna o resultado original
-                        if (resultScope != null) {
-                            resultScope.success(paymentData);
+                        if (pendingResult != null) {
+                            pendingResult.success(paymentData);
                         }
                     });
                 } else {
@@ -163,15 +171,15 @@ public class GetnetPaymentTechPluginImpl implements FlutterPlugin, MethodCallHan
                             }
                         });
                         
-                        if (resultScope != null) {
-                            resultScope.error((String) paymentData.getOrDefault("code", "ERROR"), message, null);
+                        if (pendingResult != null) {
+                            pendingResult.error((String) paymentData.getOrDefault("code", "ERROR"), message, null);
                         }
                     });
                 }
             } catch (Exception e) {
                 Log.e("GetnetPaymentTech", "Error processing result: " + e.getMessage());
-                if (resultScope != null) {
-                    resultScope.error("ERROR", "Erro ao processar resultado: " + e.getMessage(), null);
+                if (pendingResult != null) {
+                    pendingResult.error("ERROR", "Erro ao processar resultado: " + e.getMessage(), null);
                 }
             }
         }
