@@ -6,35 +6,47 @@ import android.os.Bundle;
 import java.util.Map;
 
 import br.com.jylabtech.getnet_payment_tech.deeplink.StatusDeeplink;
-import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.Result;
 
 public class StatusUsecase {
 
-    private Activity binding;
-    private Result resultScope;
+    private final Activity binding;
 
-    private  StatusDeeplink statusDeeplink;
+    private final StatusDeeplink statusDeeplink;
 
-    public StatusUsecase(Result result, Activity bind) {
-        this.resultScope = result;
-        this.binding = bind;
-        this.statusDeeplink = new StatusDeeplink();
+    public StatusUsecase(Activity bind) {
+        this(bind, new StatusDeeplink());
     }
 
-    public void starDeeplink( Bundle bundle) {
-        Bundle bundleStartDeeplink = statusDeeplink.startDeeplink(binding, bundle);
-        String code = bundleStartDeeplink.getString("code", "ERROR");
+    StatusUsecase(Activity bind, StatusDeeplink statusDeeplink) {
+        this.binding = bind;
+        this.statusDeeplink = statusDeeplink;
+    }
 
-        if ("ERROR".equals(code)) {
-            String message = bundleStartDeeplink.getString("message", "start deeplink error");
-            resultScope.error(code, message, null);
+    /**
+     * Abre o deeplink da Getnet. Usa sempre o {@code result} da chamada corrente.
+     *
+     * @return {@code true} se o deeplink foi aberto (a resposta virá pelo onActivityResult);
+     * {@code false} se houve erro, caso em que {@code result} já foi respondido com erro.
+     */
+    public boolean starDeeplink(Bundle bundle, Result result) {
+        try {
+            Bundle bundleStartDeeplink = statusDeeplink.startDeeplink(this.binding, bundle);
+            String code = bundleStartDeeplink.getString("code", "ERROR");
+
+            if ("ERROR".equals(code)) {
+                String message = bundleStartDeeplink.getString("message", "start deeplink error");
+                result.error(code, message, null);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            result.error("ERROR", e.getMessage(), null);
+            return false;
         }
     }
-
 
     public Map<String, Object> validate(Intent intent) {
         return statusDeeplink.validateIntent(intent);
     }
 }
-

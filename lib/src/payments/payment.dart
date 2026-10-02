@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:getnet_payment_tech/src/interface/handler/igetnet_handler.dart';
 import 'package:getnet_payment_tech/src/interface/model/getnet_printer.dart';
@@ -5,6 +6,7 @@ import 'package:getnet_payment_tech/src/interface/model/getnet_transaction_model
 import 'package:getnet_payment_tech/src/interface/utils/extensions/payment_type_call_ext.dart';
 import 'package:getnet_payment_tech/src/interface/utils/types/payment_type_call.dart';
 
+import '../licence/constants/licence_constants.dart';
 import 'helper/igetnet_helper.dart';
 
 final class Payment {
@@ -31,7 +33,7 @@ final class Payment {
     required MethodChannel channel,
     required IGetnetHandler paymentHandler,
     required String licenceKey,
-    required String licenceInternalKey,
+    String licenceInternalKey = licenceCheck,
   }) async {
     // Se já existe instância, reutiliza
     if (_instance != null) {
@@ -57,13 +59,19 @@ final class Payment {
     return payment;
   }
 
+  /// Limpa a instância em cache. Uso exclusivo em testes.
+  @visibleForTesting
+  static void resetForTesting() {
+    _instance = null;
+  }
+
   static void _handleTransaction(GetnetTransactionModel model) {
     // Handle transaction if needed
   }
 
   Future<void> ensureInitialised({
     required String licenceKey,
-    required String licenceInternalKey,
+    String licenceInternalKey = licenceCheck,
     required IGetnetHandler handler,
   }) async {
     paymentHandler = handler;

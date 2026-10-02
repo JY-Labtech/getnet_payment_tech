@@ -142,7 +142,9 @@ main() {
   gradlew="$EXAMPLE_ANDROID_DIR/gradlew"
   [[ -x "$gradlew" ]] || fail "Gradle wrapper do projeto de exemplo não encontrado em $gradlew"
 
-  (cd "$EXAMPLE_ANDROID_DIR" && ./gradlew -p "$ANDROID_NATIVE_DIR" clean assembleRelease)
+  # GRADLE_ARGS permite flags extras, ex.: GRADLE_ARGS="--no-daemon -Dorg.gradle.jvmargs=-Xmx1g"
+  # shellcheck disable=SC2086
+  (cd "$EXAMPLE_ANDROID_DIR" && ./gradlew ${GRADLE_ARGS:-} -p "$ANDROID_NATIVE_DIR" clean assembleRelease)
 
   local aar_dir="$ANDROID_NATIVE_DIR/build/outputs/aar"
   [[ -d "$aar_dir" ]] || fail "Diretório de saída do AAR não encontrado em $aar_dir"

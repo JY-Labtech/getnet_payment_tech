@@ -3,7 +3,8 @@ package br.com.jylabtech.getnet_payment_tech.licence;
 public class LicenceResult {
     private String method;
     private String errorMessage;
-    private int result;
+    // Começa como erro: só vira sucesso (0) quando a licença for validada explicitamente.
+    private int result = LicenceRules.RESULT_ERROR;
     private String message;
     private CheckLicenceEntity licenceEntity;
 

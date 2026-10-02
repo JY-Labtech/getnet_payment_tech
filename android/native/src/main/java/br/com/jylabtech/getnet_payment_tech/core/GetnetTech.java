@@ -17,18 +17,21 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
-import android.app.Activity;
 import android.content.Intent;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class GetnetTech {
     private static final String TAG = "GetnetTech";
     final Context currentContext;
     final MethodChannel mChannel;
-    private MethodChannel.Result resultScope;
+    private final PendingResult pendingDeeplinkResult = new PendingResult();
     private Activity binding;
     private PaymentUsecase paymentUsecase;
     private InfoUsecase infoUsecase;
@@ -40,6 +43,8 @@ public class GetnetTech {
     private LicenceUsecase licenceUsecase;
     private String licenceKey;
     private String licenceInternalKey;
+    private final ExecutorService licenceExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public GetnetTech(Context currentContext, MethodChannel channel, Activity activity) {
         this.currentContext = currentContext;
@@ -48,17 +53,17 @@ public class GetnetTech {
     }
 
     public void callMethod(MethodCall call, MethodChannel.Result result) {
-        this.resultScope = result;
-
         if ("initPayment".equals(call.method)) {
             handleInitPayment(call, result);
             return;
         }
 
-        if (!ensureLicence(result)) {
-            return;
-        }
+        // Gate de licença: toda operação (pagamento, estorno, status, pré-autorização,
+        // impressão, reimpressão, info, deviceInfo) só executa com licença válida.
+        withValidLicence(result, () -> dispatchMethod(call, result));
+    }
 
+    private void dispatchMethod(MethodCall call, MethodChannel.Result result) {
         if (call.method.startsWith("payment")) {
             Bundle bundle = new Bundle();
             bundle.putString("amount", call.argument("amount"));
@@ -72,12 +77,12 @@ public class GetnetTech {
             bundle.putString("creditType", call.argument("creditType"));
             bundle.putInt("installments", call.argument("installments"));
 
-            getPaymentUsecase().starDeeplink(bundle);
+            startDeeplink(getPaymentUsecase().starDeeplink(bundle, result), result);
         } else if (call.method.startsWith("statusPayment")) {
             Bundle bundle = new Bundle();
             bundle.putBoolean("allowPrintCurrentTransaction",call.argument("allowPrintCurrentTransaction"));
             bundle.putString("callerId", call.argument("callerId"));
-            getStatusUsecase().starDeeplink(bundle);
+            startDeeplink(getStatusUsecase().starDeeplink(bundle, result), result);
         } else if (call.method.startsWith("refundPayment")) {
             Bundle bundle = new Bundle();
             bundle.putString("amount", call.argument("amount"));
@@ -85,7 +90,7 @@ public class GetnetTech {
             bundle.putString("cvNumber", call.argument("cvNumber"));
             bundle.putString("originTerminal", call.argument("originTerminal"));
             bundle.putBoolean("allowPrintCurrentTransaction",call.argument("allowPrintCurrentTransaction"));
-            getRefundUsecase().starDeeplink(bundle);
+            startDeeplink(getRefundUsecase().starDeeplink(bundle, result), result);
         } else if (call.method.startsWith("preAuthorization")) {
             Bundle bundle = new Bundle();
             bundle.putString("amount", call.argument("amount"));
@@ -94,13 +99,13 @@ public class GetnetTech {
             bundle.putBoolean("allowPrintCurrentTransaction",call.argument("allowPrintCurrentTransaction"));
             bundle.putString("callerId", call.argument("callerId"));
             bundle.putString("orderId", call.argument("orderId"));
-            getPreAuthorizeUsecase().starDeeplink(bundle);
+            startDeeplink(getPreAuthorizeUsecase().starDeeplink(bundle, result), result);
         } else if (call.method.startsWith("print")) {
-            getPrintUsecase().print(call);
+            getPrintUsecase().print(call, result);
         } else if (call.method.startsWith("reprint")) {
-            getReprintUsecase().starDeeplink(new Bundle());
+            startDeeplink(getReprintUsecase().starDeeplink(new Bundle(), result), result);
         } else if (call.method.startsWith("info")) {
-            getInfoUsecase().starDeeplink(new Bundle());
+            startDeeplink(getInfoUsecase().starDeeplink(new Bundle(), result), result);
         } else if (call.method.startsWith("deviceInfo")) {
             Map<String, Object> deviceResponse = new DeviceInfo().getSerialNumberAndDeviceModel();
             Map<String, Object> resultData = new HashMap<>();
@@ -112,6 +117,21 @@ public class GetnetTech {
         }
     }
 
+    /** Deeplink aberto: guarda o Result da chamada corrente para responder no onActivityResult. */
+    private void startDeeplink(boolean started, MethodChannel.Result result) {
+        if (started) {
+            pendingDeeplinkResult.set(result);
+        }
+    }
+
+    /**
+     * Devolve (e limpa) o Result da operação de deeplink pendente, ou {@code null} se não houver.
+     * Cada Result é entregue uma única vez.
+     */
+    public MethodChannel.Result takePendingDeeplinkResult() {
+        return pendingDeeplinkResult.take();
+    }
+
     private void handleInitPayment(MethodCall call, MethodChannel.Result result) {
         String licenceKeyArgument = call.argument("licenceKey");
         String licenceInternalKeyArgument = call.argument("licenceInternalKey");
@@ -121,13 +141,10 @@ public class GetnetTech {
             return;
         }
 
-        if (licenceInternalKeyArgument == null || licenceInternalKeyArgument.trim().isEmpty()) {
-            result.error("LICENCE_ERROR", "licenceInternalKey é obrigatório.", null);
-            return;
-        }
-
         this.licenceKey = licenceKeyArgument;
-        this.licenceInternalKey = licenceInternalKeyArgument;
+        // licenceInternalKey é opcional: a URL efetiva é sempre a do servidor oficial
+        // (LicenceConfig.resolveLicenceUrl ignora valores fora dele).
+        this.licenceInternalKey = licenceInternalKeyArgument != null ? licenceInternalKeyArgument : "";
 
         if (licenceUsecase == null) {
             licenceUsecase = new LicenceUsecase(currentContext);
@@ -135,118 +152,136 @@ public class GetnetTech {
 
         licenceUsecase.updateLicenceKeys(licenceKey, licenceInternalKey);
 
-        try {
-            boolean isValidLicence = licenceUsecase.isValidLicence();
-            if (!isValidLicence) {
-                boolean resultLicence = licenceUsecase.checkValidLicence();
-                if (!resultLicence) {
-                    result.error("LICENCE_ERROR", "Sua licença não foi ativada.", null);
-                    return;
-                }
-            }
-            result.success(true);
-        } catch (Exception e) {
-            Log.e(TAG, "Erro ao inicializar licença: " + e.getMessage());
-            result.error("LICENCE_ERROR", e.getMessage(), null);
-        }
+        withValidLicence(result, () -> result.success(true));
     }
 
-    private boolean ensureLicence(MethodChannel.Result result) {
-        if (licenceUsecase == null || licenceKey == null || licenceInternalKey == null) {
+    /**
+     * Executa {@code onValid} somente se a licença for válida. Primeiro verifica o cache local
+     * (sem rede); se não houver cache válido, consulta o servidor em background e responde na
+     * main thread. Licença inválida devolve LICENCE_ERROR e a operação não é executada.
+     */
+    private void withValidLicence(MethodChannel.Result result, Runnable onValid) {
+        final LicenceUsecase usecase = this.licenceUsecase;
+        if (usecase == null || licenceKey == null) {
             result.error("LICENCE_ERROR", "Chame initPayment antes de usar os métodos do plugin.", null);
-            return false;
+            return;
         }
 
+        boolean cachedValid = false;
         try {
-            boolean isValidLicence = licenceUsecase.isValidLicence();
-            if (!isValidLicence) {
-                boolean resultLicence = licenceUsecase.checkValidLicence();
-                if (!resultLicence) {
-                    result.error("LICENCE_ERROR", "Sua licença não foi ativada.", null);
-                    return false;
-                }
-            }
-            return true;
+            cachedValid = usecase.isValidLicence();
         } catch (Exception e) {
-            Log.e(TAG, "Erro ao validar licença: " + e.getMessage());
-            result.error("LICENCE_ERROR", e.getMessage(), null);
-            return false;
+            Log.e(TAG, "Erro ao verificar licença local: " + e.getMessage());
         }
+
+        if (cachedValid) {
+            onValid.run();
+            return;
+        }
+
+        licenceExecutor.execute(() -> {
+            String errorMessage = null;
+            boolean valid = false;
+            try {
+                valid = usecase.checkValidLicence();
+            } catch (Exception e) {
+                errorMessage = e.getMessage();
+            }
+
+            final boolean isValid = valid;
+            final String message = errorMessage != null ? errorMessage : "Sua licença não foi ativada.";
+            mainHandler.post(() -> {
+                if (isValid) {
+                    onValid.run();
+                } else {
+                    Log.e(TAG, "Licença inválida: " + message);
+                    result.error("LICENCE_ERROR", message, null);
+                }
+            });
+        });
     }
 
+    /**
+     * Converte o onActivityResult de um deeplink em resposta. Devolve {@code null} para requestCodes
+     * que não são do plugin. Se o app da Getnet voltar sem RESULT_OK (ex.: cancelamento), devolve
+     * erro {@code CANCELED} para que o Future pendente complete.
+     */
     public Map<String, Object> checkIntentResponse(int requestCode, int resultCode, Intent intent) {
-        if (RESULT_OK == resultCode) {
-            Map<String, Object> responseMap = new HashMap<>();
-            switch (requestCode) {
-                case RequestConstants.PAYMENT_REQUEST_CODE:
-                    responseMap = getPaymentUsecase().validate(intent);
-                    break;
-                case RequestConstants.STATUS_REQUEST_CODE:
-                    responseMap = getStatusUsecase().validate(intent);
-                    break;
-                case RequestConstants.PRE_AUTHORIZE_REQUEST_CODE:
-                    responseMap = getPreAuthorizeUsecase().validate(intent);
-                    break;
-                case RequestConstants.REFUND_REQUEST_CODE:
-                    responseMap = getRefundUsecase().validate(intent);
-                    break;
-                case RequestConstants.REPRINT_REQUEST_CODE:
-                    responseMap = getReprintUsecase().validate(intent);
-                    break;
-                case RequestConstants.INFO_REQUEST_CODE:
-                    responseMap = getInfoUsecase().validate(intent);
-                    break;
-            }
-            return responseMap;
+        if (!ActivityResultRules.isPluginRequestCode(requestCode)) {
+            return null;
         }
-        return null;
+        if (RESULT_OK != resultCode) {
+            return ActivityResultRules.notOkResponse(resultCode);
+        }
+        Map<String, Object> responseMap = new HashMap<>();
+        switch (requestCode) {
+            case RequestConstants.PAYMENT_REQUEST_CODE:
+                responseMap = getPaymentUsecase().validate(intent);
+                break;
+            case RequestConstants.STATUS_REQUEST_CODE:
+                responseMap = getStatusUsecase().validate(intent);
+                break;
+            case RequestConstants.PRE_AUTHORIZE_REQUEST_CODE:
+                responseMap = getPreAuthorizeUsecase().validate(intent);
+                break;
+            case RequestConstants.REFUND_REQUEST_CODE:
+                responseMap = getRefundUsecase().validate(intent);
+                break;
+            case RequestConstants.REPRINT_REQUEST_CODE:
+                responseMap = getReprintUsecase().validate(intent);
+                break;
+            case RequestConstants.INFO_REQUEST_CODE:
+                responseMap = getInfoUsecase().validate(intent);
+                break;
+        }
+        return responseMap;
     }
 
     private PaymentUsecase getPaymentUsecase() {
         if(this.paymentUsecase == null) {
-            this.paymentUsecase = new PaymentUsecase(this.resultScope, this.binding);
+            this.paymentUsecase = new PaymentUsecase(this.binding);
         }
         return this.paymentUsecase;
     }
 
     private InfoUsecase getInfoUsecase() {
         if(this.infoUsecase == null) {
-            this.infoUsecase = new InfoUsecase(this.resultScope, this.binding);
+            this.infoUsecase = new InfoUsecase(this.binding);
         }
         return this.infoUsecase;
     }
 
     private PreAuthorizeUsecase getPreAuthorizeUsecase() {
         if(this.preAuthorizeUsecase == null) {
-            this.preAuthorizeUsecase = new PreAuthorizeUsecase(this.resultScope, this.binding);
+            this.preAuthorizeUsecase = new PreAuthorizeUsecase(this.binding);
         }
         return this.preAuthorizeUsecase;
     }
 
     private RefundUsecase getRefundUsecase() {
         if(this.refundUsecase == null) {
-            this.refundUsecase = new RefundUsecase(this.resultScope, this.binding);
+            this.refundUsecase = new RefundUsecase(this.binding);
         }
         return this.refundUsecase;
     }
 
     private ReprintUsecase getReprintUsecase() {
         if(this.reprintUsecase == null) {
-            this.reprintUsecase = new ReprintUsecase(this.resultScope, this.binding);
+            this.reprintUsecase = new ReprintUsecase(this.binding);
         }
         return this.reprintUsecase;
     }
 
     private StatusUsecase getStatusUsecase() {
         if(this.statusUsecase == null) {
-            this.statusUsecase = new StatusUsecase(this.resultScope, this.binding);
+            this.statusUsecase = new StatusUsecase(this.binding);
         }
         return this.statusUsecase;
     }
 
     private PrintUsecase getPrintUsecase() {
         if(this.printUsecase == null) {
-            this.printUsecase = new PrintUsecase(this.resultScope);
+            this.printUsecase = new PrintUsecase();
         }
         return this.printUsecase;
     }
