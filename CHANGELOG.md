@@ -1,3 +1,10 @@
+## Não lançado
+
+- Licença conforme o contrato do jylabtech_core (JYN-234): o cache offline vale por no máximo 72 horas (antes 7 dias) e só é usado quando o servidor não responde (sem internet, timeout, 5xx).
+- A primeira operação depois de abrir o app consulta o servidor, e a licença é revalidada a cada 4 horas de uso; o atalho só-cache (`validateExistsLicence`) só libera quando nenhuma consulta online está pendente.
+- Recusa do servidor (cliente bloqueado, licença vencida/cancelada/suspensa, não encontrada, aparelho desativado) apaga o cache e bloqueia na hora.
+- O binário nativo em `android/libs` precisa ser regerado na publicação.
+
 ## 1.2.0
 
 - Validação de licença migrada para o novo serviço da JY Labtech (`https://portal-api.jylabtech.com.br/pos-payments/licence/check`). Mesmo contrato da API anterior; as chaves de licença existentes continuam válidas.

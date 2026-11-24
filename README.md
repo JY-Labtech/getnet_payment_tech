@@ -132,7 +132,7 @@ O uso do plugin exige uma licença válida da JY Labtech. O plugin:
 
 - ✅ Valida a licença sempre no servidor oficial da JY Labtech, na inicialização (`initPayment`) e antes de **cada** operação (pagamentos, estorno, status, pré-autorização, impressão, reimpressão, `getInfo` e `getDeviceInfo`)
 - ✅ Armazena a licença localmente de forma criptografada (`EncryptedSharedPreferences`)
-- ✅ Funciona offline com a licença armazenada até a data de validade, por no máximo **7 dias** sem nova consulta ao servidor
+- ✅ Funciona offline com a licença armazenada até a data de validade, por no máximo **72 horas** sem nova consulta ao servidor (só quando o servidor não responde)
 - ✅ Bloqueia toda operação com erro `LICENCE_ERROR`, sem chamar o SDK da Getnet, quando a licença é inválida, vencida, suspensa ou cancelada
 
 ### Onde adquirir a licença
@@ -154,10 +154,10 @@ Cada aparelho que valida a licença ocupa uma vaga do limite de dispositivos da 
 
 ### Como Funciona
 
-1. **Validação local**: ao inicializar ou executar uma operação, o plugin verifica se existe uma licença válida armazenada no aparelho para a mesma `licenceKey` (sem acesso à rede). A licença local só vale se estiver ativa, dentro da validade, não cancelada, salva há no máximo 7 dias, com o relógio do aparelho coerente e validada no servidor oficial. Uma licença local salva por versões anteriores com o `licenceInternalKey` antigo (Cloud Run) é descartada e revalidada online no servidor oficial
+1. **Validação local**: a primeira operação depois de abrir o app sempre consulta o servidor. Depois disso, o plugin usa a licença armazenada no aparelho para a mesma `licenceKey` (sem acesso à rede) e volta a consultar o servidor a cada 4 horas de uso. A licença local só vale se estiver ativa, dentro da validade, não cancelada, validada online há no máximo 72 horas, com o relógio do aparelho coerente e validada no servidor oficial. Uma licença local salva por versões anteriores com o `licenceInternalKey` antigo (Cloud Run) é descartada e revalidada online no servidor oficial
 2. **Validação com o servidor**: se não houver licença local válida, o plugin consulta o servidor oficial (`POST https://portal-api.jylabtech.com.br/pos-payments/licence/check`, com o header `Authorization: Bearer licence:<licenceKey>`), em background e com timeout de 15 s
-3. **Armazenamento seguro**: somente uma licença ativa e dentro da validade é armazenada localmente, de forma criptografada. Uma resposta do servidor com licença vencida, inativa ou cancelada é tratada como erro
-4. **Renovação**: a licença local deixa de valer na data de vencimento ou após 7 dias sem nova consulta; nesse momento o plugin consulta o servidor novamente (é necessário ter internet)
+3. **Armazenamento seguro**: somente uma licença ativa e dentro da validade é armazenada localmente, de forma criptografada. Uma recusa do servidor (cliente bloqueado no portal, licença vencida, cancelada, suspensa ou não encontrada, aparelho desativado, limite de aparelhos) apaga a licença local e bloqueia as operações na hora. Se o servidor não responder (sem internet, timeout, 5xx), a licença local continua valendo até completar 72 horas, e o plugin espera 5 minutos antes de tentar o servidor de novo
+4. **Renovação**: a licença local deixa de valer na data de vencimento ou após 72 horas sem uma consulta online bem-sucedida; nesse momento o plugin consulta o servidor novamente (é necessário ter internet)
 
 ### Erros de Licença
 
@@ -970,7 +970,7 @@ plugin:
 1. Confirme que a `licenceKey` foi informada (não vazia) no `initPayment`
 2. O `licenceInternalKey` é opcional e valores fora do servidor oficial são ignorados (veja [Configuração do `licenceInternalKey`](#configuração-do-licenceinternalkey))
 3. Confira no portal [https://portal.jylabtech.com.br](https://portal.jylabtech.com.br) se a licença está ativa, dentro da validade e com vaga de aparelho (ou se o aparelho não foi desativado)
-4. Garanta que o aparelho tem acesso à internet na primeira validação e pelo menos a cada 7 dias
+4. Garanta que o aparelho tem acesso à internet na primeira validação e ao abrir o app e pelo menos a cada 72 horas
 5. Ao trocar de chave, a licença armazenada localmente é descartada automaticamente e uma nova validação é feita
 
 ### Problema: Callbacks não são chamados
