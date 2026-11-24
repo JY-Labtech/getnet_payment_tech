@@ -76,7 +76,7 @@ No arquivo `pubspec.yaml` do seu projeto:
 
 ```yaml
 dependencies:
-  getnet_payment_tech: ^1.2.0
+  getnet_payment_tech: ^1.3.0
 ```
 
 ### 2. Instale as dependências
