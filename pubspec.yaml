@@ -1,7 +1,15 @@
 name: getnet_payment_tech
-description: Plugin Flutter para integrar sua aplicação com o SDK Android da Getnet para meios de pagamento.
-version: 1.3.0
+description: Flutter plugin for Getnet Android POS terminals (libposdigital SDK and deep links) - credit, debit, voucher, PIX, refund, pre-authorization and printing.
+version: 2.0.0
 homepage: https://github.com/JY-Labtech/getnet_payment_tech
+repository: https://github.com/JY-Labtech/getnet_payment_tech
+issue_tracker: https://github.com/JY-Labtech/getnet_payment_tech/issues
+topics:
+  - payment
+  - pos
+  - android
+  - flutter-plugin
+  - brazil
 
 environment:
   sdk: ^3.9.2

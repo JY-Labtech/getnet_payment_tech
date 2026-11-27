@@ -9,7 +9,7 @@ pubspec.lock
 
 # Directory created by dartdoc
 # If you don't generate documentation locally you can remove this line.
-doc/api/
+doc/
 
 # dotenv environment variables file
 .env*
@@ -29,7 +29,8 @@ doc/api/
 .flutter-plugins-dependencies
 
 # --- Exclusões extras do pacote publicado (pub.dev) ---
-# Arquivos locais com caminhos da máquina e/ou chaves de licença
+# Segredos e arquivos locais com caminhos da máquina
+example/Chaves/
 **/local.properties
 **/key.properties
 **/*.jks
@@ -40,3 +41,5 @@ doc/api/
 **/.cxx/
 *.iml
 .vscode/
+# Heap dumps de builds do Gradle
+*.hprof

@@ -6,51 +6,31 @@ import 'package:getnet_payment_tech/src/interface/model/getnet_transaction_model
 import 'package:getnet_payment_tech/src/interface/utils/extensions/payment_type_call_ext.dart';
 import 'package:getnet_payment_tech/src/interface/utils/types/payment_type_call.dart';
 
-import '../licence/constants/licence_constants.dart';
 import 'helper/igetnet_helper.dart';
 
 final class Payment {
   final MethodChannel channel;
   IGetnetHandler paymentHandler;
-  String _licenceKey;
-  String _licenceInternalKey;
   bool _nativeInitialised;
 
   // Cache da instância criada
   static Payment? _instance;
 
-  Payment._({
-    required this.channel,
-    required this.paymentHandler,
-    required String licenceKey,
-    required String licenceInternalKey,
-  }) : _licenceKey = licenceKey,
-       _licenceInternalKey = licenceInternalKey,
-       _nativeInitialised = false;
+  Payment._({required this.channel, required this.paymentHandler})
+    : _nativeInitialised = false;
 
   /// Método factory assíncrono para criação controlada
   static Future<Payment> create({
     required MethodChannel channel,
     required IGetnetHandler paymentHandler,
-    required String licenceKey,
-    String licenceInternalKey = licenceCheck,
   }) async {
     // Se já existe instância, reutiliza
     if (_instance != null) {
-      await _instance!.ensureInitialised(
-        licenceKey: licenceKey,
-        licenceInternalKey: licenceInternalKey,
-        handler: paymentHandler,
-      );
+      await _instance!.ensureInitialised(handler: paymentHandler);
       return _instance!;
     }
 
-    final payment = Payment._(
-      channel: channel,
-      paymentHandler: paymentHandler,
-      licenceKey: licenceKey,
-      licenceInternalKey: licenceInternalKey,
-    );
+    final payment = Payment._(channel: channel, paymentHandler: paymentHandler);
     _instance = payment;
 
     payment._registerHandler();
@@ -69,21 +49,10 @@ final class Payment {
     // Handle transaction if needed
   }
 
-  Future<void> ensureInitialised({
-    required String licenceKey,
-    String licenceInternalKey = licenceCheck,
-    required IGetnetHandler handler,
-  }) async {
+  /// Troca o handler e garante que o nativo foi inicializado.
+  Future<void> ensureInitialised({required IGetnetHandler handler}) async {
     paymentHandler = handler;
     _registerHandler();
-
-    if (_licenceKey != licenceKey ||
-        _licenceInternalKey != licenceInternalKey) {
-      _licenceKey = licenceKey;
-      _licenceInternalKey = licenceInternalKey;
-      _nativeInitialised = false;
-    }
-
     await _ensureNativeInitialised();
   }
 
@@ -340,6 +309,25 @@ final class Payment {
     }
   }
 
+  /// Lê os dados do aparelho no nativo e os devolve.
+  ///
+  /// Retorna um mapa com `deviceModel` (`Build.MODEL`) e `serialNumber`
+  /// (no Android 8.0+ o sistema não expõe o serial e o valor é
+  /// `"Block Info"`), ou `null` em caso de erro.
+  Future<Map<String, dynamic>?> getDeviceInfoData() async {
+    try {
+      await _ensureNativeInitialised();
+      final result = await channel.invokeMethod<Map<dynamic, dynamic>>(
+        PaymentTypeCall.deviceInfo.method,
+      );
+      final data = result?['data'];
+      if (data is! Map) return null;
+      return data.map((key, value) => MapEntry(key.toString(), value));
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Function to get info
   Future<bool> getInfo() async {
     try {
@@ -362,10 +350,7 @@ final class Payment {
   }
 
   Future<void> _initialiseNative() async {
-    await channel.invokeMethod('initPayment', {
-      'licenceKey': _licenceKey,
-      'licenceInternalKey': _licenceInternalKey,
-    });
+    await channel.invokeMethod('initPayment');
     _nativeInitialised = true;
   }
 

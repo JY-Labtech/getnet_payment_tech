@@ -1,3 +1,23 @@
+## 2.0.0
+
+- **BREAKING: licença paga e cobrança removidas.** O plugin não valida mais chave nem faz nenhuma chamada HTTP ao servidor da JY Labtech; as operações chamam o app/SDK da Getnet direto.
+  - Removidos os parâmetros `licenceKey` e `licenceInternalKey` de `GetnetTech.initPayment`, `Payment.create` e `Payment.ensureInitialised`.
+  - Removida a constante pública `licenceCheck` (e `licence_constants.dart`, com `CHANNEL_NAME`/`USER_REFERENCE`, que não eram usadas).
+  - Removido o erro `LICENCE_ERROR`: nenhuma operação é mais bloqueada.
+  - O `initPayment` nativo não recebe argumentos e só confirma que a implementação nativa está carregada.
+  - Nativo: removidas as classes `LicenceConfig`, `LicenceRules`, `LicenceProvider`, `LicenceResult`, `LicenceStorage`, `EncryptedLicenceStorage`, `LicenceNetwork`, `LicenceClock`, `CheckLicenceTech`, `CheckLicenceEntity` e `LicenceUsecase`, e o gate `withValidLicence` do `GetnetTech` (com o executor de background que ele usava).
+  - Removida a dependência `androidx.security:security-crypto` (servia só ao armazenamento da licença); o app não precisa mais dela.
+  - App de exemplo sem a chave.
+- **Projeto open source sob a licença MIT** (antes proprietária).
+- README reescrito: funcionalidades, requisitos, instalação, configuração do `libposdigital`, uso rápido, referência da API, exemplos por operação, erros, testes e guia de migração.
+- **Correção: `print` envia o conteúdo à impressora.** `GetnetPrinterParams` agora gera o `printable_content` esperado pelo nativo (texto, imagem Base64 e linhas em branco); antes o texto e a imagem não chegavam ao SDK.
+- **Correção: `print` não trava mais a main thread.** A impressão (que espera 5 s após iniciar a impressora) roda num executor em background e o `result` é respondido na main thread, uma única vez.
+- Novo `Payment.getDeviceInfoData()`: devolve `Map` com `deviceModel` e `serialNumber` (`"Block Info"` no Android 8.0+). `getDeviceInfo()` continua retornando `bool`.
+- `pubspec.yaml`: descrição em inglês, `repository`, `issue_tracker` e `topics`.
+- `.pubignore`: o código-fonte nativo (`android/native`) é publicado; continuam fora `example/Chaves/`, `local.properties`, `key.properties`, keystores, `doc/`, `*.hprof` e `build/`.
+- Testes: removidos os testes de licença; novos testes Dart de todos os métodos no MethodChannel, do handler e dos modelos, e teste JVM do roteamento do `GetnetTech` sem gate.
+- Binários nativos (`android/libs/getnet_payment_tech-native.jar`/`.aar`) regenerados.
+
 ## 1.3.0
 
 - Licença conforme o contrato do jylabtech_core (JYN-234): o cache offline vale por no máximo 72 horas (antes 7 dias) e só é usado quando o servidor não responde (sem internet, timeout, 5xx).

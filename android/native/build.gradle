@@ -53,7 +53,7 @@ android {
     }
 
     buildFeatures {
-        buildConfig true
+        buildConfig false
     }
 
     publishing {
@@ -72,15 +72,12 @@ repositories {
 }
 
 dependencies {
-    implementation "androidx.security:security-crypto:1.1.0-alpha06"
     implementation "androidx.annotation:annotation:1.8.1"
     compileOnly files(flutterJar)
     compileOnly files(posDigitalAar)
     testImplementation "junit:junit:4.13.2"
     // MethodCall/MethodChannel.Result nos testes dos usecases
     testImplementation files(flutterJar)
-    // org.json do android.jar é stub em testes JVM
-    testImplementation "org.json:json:20240303"
 }
 
 tasks.register("generateAar", Copy) {

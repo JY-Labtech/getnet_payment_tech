@@ -11,8 +11,6 @@ class PaymentPage extends StatefulWidget {
 }
 
 class _PaymentPageState extends State<PaymentPage> {
-  static const _licenceKey = '';
-
   final PaymentController controller = PaymentController();
   final TextEditingController moneyController = TextEditingController();
   final TextEditingController callerIdController = TextEditingController();
@@ -27,7 +25,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _initialisePlugin() async {
-    await GetnetTech.I.initPayment(handler: controller, licenceKey: _licenceKey);
+    await GetnetTech.I.initPayment(handler: controller);
     controller.generateCallerId();
     controller.generateOrderId();
     callerIdController.text = controller.callerId ?? '';

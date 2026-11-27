@@ -4,7 +4,6 @@ import static android.app.Activity.RESULT_OK;
 
 import br.com.jylabtech.getnet_payment_tech.services.DeviceInfo;
 import br.com.jylabtech.getnet_payment_tech.usecase.InfoUsecase;
-import br.com.jylabtech.getnet_payment_tech.usecase.LicenceUsecase;
 import br.com.jylabtech.getnet_payment_tech.usecase.PaymentUsecase;
 import br.com.jylabtech.getnet_payment_tech.usecase.PreAuthorizeUsecase;
 import br.com.jylabtech.getnet_payment_tech.usecase.PrintUsecase;
@@ -17,18 +16,12 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.util.Log;
 import android.content.Intent;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class GetnetTech {
-    private static final String TAG = "GetnetTech";
     final Context currentContext;
     final MethodChannel mChannel;
     private final PendingResult pendingDeeplinkResult = new PendingResult();
@@ -40,11 +33,6 @@ public class GetnetTech {
     private ReprintUsecase reprintUsecase;
     private StatusUsecase statusUsecase;
     private PrintUsecase printUsecase;
-    private LicenceUsecase licenceUsecase;
-    private String licenceKey;
-    private String licenceInternalKey;
-    private final ExecutorService licenceExecutor = Executors.newSingleThreadExecutor();
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public GetnetTech(Context currentContext, MethodChannel channel, Activity activity) {
         this.currentContext = currentContext;
@@ -54,13 +42,11 @@ public class GetnetTech {
 
     public void callMethod(MethodCall call, MethodChannel.Result result) {
         if ("initPayment".equals(call.method)) {
-            handleInitPayment(call, result);
+            handleInitPayment(result);
             return;
         }
 
-        // Gate de licença: toda operação (pagamento, estorno, status, pré-autorização,
-        // impressão, reimpressão, info, deviceInfo) só executa com licença válida.
-        withValidLicence(result, () -> dispatchMethod(call, result));
+        dispatchMethod(call, result);
     }
 
     private void dispatchMethod(MethodCall call, MethodChannel.Result result) {
@@ -132,73 +118,12 @@ public class GetnetTech {
         return pendingDeeplinkResult.take();
     }
 
-    private void handleInitPayment(MethodCall call, MethodChannel.Result result) {
-        String licenceKeyArgument = call.argument("licenceKey");
-        String licenceInternalKeyArgument = call.argument("licenceInternalKey");
-
-        if (licenceKeyArgument == null || licenceKeyArgument.trim().isEmpty()) {
-            result.error("LICENCE_ERROR", "licenceKey é obrigatório.", null);
-            return;
-        }
-
-        this.licenceKey = licenceKeyArgument;
-        // licenceInternalKey é opcional: a URL efetiva é sempre a do servidor oficial
-        // (LicenceConfig.resolveLicenceUrl ignora valores fora dele).
-        this.licenceInternalKey = licenceInternalKeyArgument != null ? licenceInternalKeyArgument : "";
-
-        if (licenceUsecase == null) {
-            licenceUsecase = new LicenceUsecase(currentContext);
-        }
-
-        licenceUsecase.updateLicenceKeys(licenceKey, licenceInternalKey);
-
-        withValidLicence(result, () -> result.success(true));
-    }
-
     /**
-     * Executa {@code onValid} somente se a licença for válida. Primeiro verifica o cache local
-     * (sem rede); se não houver cache válido, consulta o servidor em background e responde na
-     * main thread. Licença inválida devolve LICENCE_ERROR e a operação não é executada.
+     * Mantido para o Flutter confirmar que a implementação nativa está carregada. Não faz
+     * nenhuma validação nem acesso à rede.
      */
-    private void withValidLicence(MethodChannel.Result result, Runnable onValid) {
-        final LicenceUsecase usecase = this.licenceUsecase;
-        if (usecase == null || licenceKey == null) {
-            result.error("LICENCE_ERROR", "Chame initPayment antes de usar os métodos do plugin.", null);
-            return;
-        }
-
-        boolean cachedValid = false;
-        try {
-            cachedValid = usecase.isValidLicence();
-        } catch (Exception e) {
-            Log.e(TAG, "Erro ao verificar licença local: " + e.getMessage());
-        }
-
-        if (cachedValid) {
-            onValid.run();
-            return;
-        }
-
-        licenceExecutor.execute(() -> {
-            String errorMessage = null;
-            boolean valid = false;
-            try {
-                valid = usecase.checkValidLicence();
-            } catch (Exception e) {
-                errorMessage = e.getMessage();
-            }
-
-            final boolean isValid = valid;
-            final String message = errorMessage != null ? errorMessage : "Sua licença não foi ativada.";
-            mainHandler.post(() -> {
-                if (isValid) {
-                    onValid.run();
-                } else {
-                    Log.e(TAG, "Licença inválida: " + message);
-                    result.error("LICENCE_ERROR", message, null);
-                }
-            });
-        });
+    private void handleInitPayment(MethodChannel.Result result) {
+        result.success(true);
     }
 
     /**

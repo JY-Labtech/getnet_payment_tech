@@ -42,7 +42,6 @@ repositories {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation "androidx.security:security-crypto:1.1.0-alpha06"
     testImplementation "junit:junit:4.13.2"
     // Classes do SDK Getnet (o app inclui o AAR) para instanciar a implementação nativa nos testes JVM
     testImplementation files(zipTree(project.file('libs/libposdigital-1.8.1-13-release.aar')).matching { include 'classes.jar' })

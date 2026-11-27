@@ -1,10 +1,14 @@
 package br.com.jylabtech.getnet_payment_tech.usecase;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.MethodCall;
@@ -29,26 +33,59 @@ public class PrintUsecase {
     }
 
     private final PrintRunner printRunner;
+    /** Onde a impressão roda (fora da main thread: o SDK espera 5 s após o init da impressora). */
+    private final Executor workExecutor;
+    /** Onde o {@code result} é respondido (main thread, exigido pelo MethodChannel). */
+    private final Executor resultExecutor;
     private PrintService printService;
 
     public PrintUsecase() {
         this.printRunner = this::printWithService;
+        this.workExecutor = Executors.newSingleThreadExecutor();
+        final Handler mainHandler = new Handler(Looper.getMainLooper());
+        this.resultExecutor = mainHandler::post;
     }
 
     PrintUsecase(PrintRunner printRunner) {
-        this.printRunner = printRunner;
+        this(printRunner, Runnable::run, Runnable::run);
     }
 
-    /** Imprime e responde uma única vez no {@code result} da chamada corrente. */
-    public void print(MethodCall call, Result result) {
-        PrintOutcome outcome;
-        try {
-            List<HashMap<String, Object>> listPrintContent = call.argument("printable_content");
-            outcome = printRunner.print(listPrintContent);
-        } catch (Exception e) {
-            outcome = new PrintOutcome("ERROR", e.getMessage() != null ? e.getMessage() : "result error");
-        }
+    PrintUsecase(PrintRunner printRunner, Executor workExecutor, Executor resultExecutor) {
+        this.printRunner = printRunner;
+        this.workExecutor = workExecutor;
+        this.resultExecutor = resultExecutor;
+    }
 
+    /**
+     * Imprime em background e responde uma única vez no {@code result} da chamada corrente,
+     * na thread de resposta (main).
+     */
+    public void print(MethodCall call, Result result) {
+        final List<HashMap<String, Object>> listPrintContent;
+        try {
+            listPrintContent = call.argument("printable_content");
+        } catch (Exception e) {
+            reply(new PrintOutcome("ERROR", e.getMessage() != null ? e.getMessage() : "result error"), result);
+            return;
+        }
+        try {
+            workExecutor.execute(() -> {
+                PrintOutcome outcome;
+                try {
+                    outcome = printRunner.print(listPrintContent);
+                } catch (Exception e) {
+                    outcome = new PrintOutcome("ERROR", e.getMessage() != null ? e.getMessage() : "result error");
+                }
+                final PrintOutcome finalOutcome = outcome;
+                resultExecutor.execute(() -> reply(finalOutcome, result));
+            });
+        } catch (RuntimeException e) {
+            // Executor recusou a tarefa: responde direto para o Future não ficar pendente.
+            reply(new PrintOutcome("ERROR", e.getMessage() != null ? e.getMessage() : "result error"), result);
+        }
+    }
+
+    private static void reply(PrintOutcome outcome, Result result) {
         if (outcome != null && "SUCCESS".equals(outcome.code)) {
             Map<String, Object> data = new HashMap<>();
             data.put("code", "SUCCESS");

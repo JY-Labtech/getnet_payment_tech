@@ -8,6 +8,7 @@ Este é um exemplo completo de como usar o plugin `getnet_payment_tech` para int
 - **Crédito**: Pagamento no crédito à vista
 - **Crédito Parcelado**: Pagamento no crédito com parcelas (exemplo: 2x)
 - **Débito**: Pagamento no débito
+- **Voucher** e **PIX**
 
 ### Outras Operações
 - **Pré-Autorização**: Realizar pré-autorização de valores
@@ -23,10 +24,7 @@ Este é um exemplo completo de como usar o plugin `getnet_payment_tech` para int
 
 1. **Inicializar o Plugin**
    ```dart
-   await GetnetTech.I.initPayment(
-     handler: seuHandler,
-     licenceKey: 'SUA_CHAVE_DE_LICENCA',
-   );
+   await GetnetTech.I.initPayment(handler: seuHandler);
    ```
 
 2. **Realizar um Pagamento**
@@ -40,7 +38,7 @@ Este é um exemplo completo de como usar o plugin `getnet_payment_tech` para int
 
 3. **Implementar o Handler**
    ```dart
-   class PaymentController extends IGetnetHandler {
+   class PaymentController implements IGetnetHandler {
      @override
      Future<void> onTransactionSuccess() async {
        // Transação aprovada
@@ -79,10 +77,17 @@ example/
 - O valor deve ser inserido em reais (ex: 100.00 para R$ 100,00)
 - Para estornar, é necessário o CV Number e a data da transação original
 - O plugin utiliza deeplinks para comunicação com o SDK Getnet
-- A chave `licenceKey` deve ser fornecida via código (por variáveis de ambiente ou constantes)
-- A `licenceKey` é obtida no portal [https://portal.jylabtech.com.br](https://portal.jylabtech.com.br) (a licença `debug` de cortesia permite testar em até 2 aparelhos)
-- O `licenceInternalKey` é opcional e o exemplo não o informa: o plugin usa o padrão `licenceCheck` (servidor oficial da JY Labtech)
+
+## Como rodar
+
+```bash
+cd example
+flutter pub get
+flutter run   # em um terminal POS Getnet com o app de pagamento da Getnet
+```
+
+O AAR do SDK da Getnet (`libposdigital-1.8.1-13-release.aar`) já está em `example/android/app/libs`.
 
 ## Suporte
 
-Para mais informações, consulte a documentação do plugin principal.
+Consulte o [README do plugin](../README.md).
